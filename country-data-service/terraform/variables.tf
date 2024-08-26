@@ -45,5 +45,4 @@ variable "codebuild_image" {
 
 variable "github_connection_arn" {
   description = "The ARN of the GitHub connection for CodePipeline"
-  type        = "string"
 }
