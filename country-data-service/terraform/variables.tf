@@ -5,7 +5,7 @@ variable "project_name" {
 
 variable "github_repo" {
   description = "The GitHub repository for the project"
-  default     = "silveira-js/test-chalice-app"
+  default     = "silveira-js/chalice-country-service"
 }
 
 variable "github_branch" {
