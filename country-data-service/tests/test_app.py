@@ -27,8 +27,7 @@ def test_index_route(test_client):
             '/country/united-kingdom',
             '/status/new-zealand'
         ],
-        'rate_limits': 'API calls are subject to rate limiting',
-        'documentation': 'For full API documentation, visit https://api-docs.example.com'
+        'rate_limits': 'API calls are subject to rate limiting'
     }
 
 @patch('app.country_service.fetch_country_data')
