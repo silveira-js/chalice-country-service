@@ -1,0 +1,27 @@
+version: 0.2
+
+env:
+  shell: bash
+
+phases:
+  pre_build:
+    commands:
+      - echo "Installing dependencies"
+      - cd country-data-service
+      - pip install -r requirements.txt
+      - pip install chalice
+      - mkdir -p ./.chalice/deployed
+      # Get chalice deployed state (if it exists)
+      - aws s3 cp --recursive s3://${CHALICE_STATE_BUCKET}/chalice-deployed-state/ ./.chalice/deployed || echo "No existing state found"
+
+  build:
+    commands:
+      - echo "Deploying Chalice application"
+      - python update_chalice_config.py
+      - chalice deploy
+
+  post_build:
+    commands:
+      # Update chalice deployed state
+      - aws s3 cp --recursive ./.chalice/deployed s3://${CHALICE_STATE_BUCKET}/chalice-deployed-state/
+      - echo "Deployment completed successfully"

@@ -1,0 +1,17 @@
+version: 0.2
+
+env:
+  shell: bash
+phases:
+  pre_build:
+    commands:
+      - cd country-data-service
+      - echo "Installing dependencies"
+      - pip install -r requirements.txt
+  build:
+    commands:
+      - echo "Running tests"
+      - python -m pytest
+  post_build:
+    commands:
+      - echo "Tests completed on `date`"
