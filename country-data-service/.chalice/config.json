@@ -1,0 +1,19 @@
+{
+  "version": "2.0",
+  "app_name": "country-data-service",
+  "stages": {
+    "dev": {
+      "api_gateway_stage": "api",
+      "environment_variables": {
+        "STAGE": "dev",
+        "REDIS_HOST": "${REDIS_HOST}",
+        "REDIS_PORT": "${REDIS_PORT}",
+        "SQS_QUEUE_URL": "${SQS_QUEUE_URL}"
+      },
+      "iam_role_arn": "${IAM_ROLE_ARN}",
+      "manage_iam_role": false,
+      "subnet_ids": [],
+      "security_group_ids": []
+    }
+  }
+}
