@@ -7,6 +7,7 @@ from chalicelib.rate_limiter import RateLimiter
 from chalicelib.rate_limit_config import RATE_LIMITS
 from botocore.exceptions import ClientError
 from chalicelib.utils import validate_country
+import time
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -84,36 +85,29 @@ def handle_sqs_message(event):
             
             if country_service.fetch_and_save_country_data(country):
                 logger.info(f"Successfully processed data for {country}")
-                successful_messages.append(record)
+                successful_messages.append({})
             else:
                 logger.error(f"Failed to process data for {country}")
-                failed_messages.append((record, f"Failed to process data for {country}"))
+                failed_messages.append({"error": f"Failed to process data for {country}"})
         except json.JSONDecodeError as e:
             logger.error(f"Invalid JSON in message: {str(e)}")
-            failed_messages.append((record, f"Invalid JSON: {str(e)}"))
+            failed_messages.append({"error": f"Invalid JSON: {str(e)}"})
         except ValueError as e:
             logger.error(str(e))
-            failed_messages.append((record, str(e)))
+            failed_messages.append({"error": str(e)})
         except Exception as e:
             logger.error(f"Unexpected error processing message: {str(e)}")
-            failed_messages.append((record, f"Unexpected error: {str(e)}"))
+            failed_messages.append({"error": f"Unexpected error: {str(e)}"})
 
+    # Log the results
     if failed_messages:
-        # Manually delete successful messages
-        for record in successful_messages:
-            try:
-                country_service.queue_service.delete_message(record.receipt_handle)
-            except ClientError as e:
-                logger.error(f"Error deleting message: {e}")
+        logger.error(f"Failed to process {len(failed_messages)} messages: {json.dumps(failed_messages)}")
+    
+    logger.info(f"Successfully processed {len(successful_messages)} messages")
 
-        # Prepare error information for failed messages
-        error_info = [
-            {"error": error}
-            for _, error in failed_messages
+    # Return a response indicating partial batch success
+    return {
+        "batchItemFailures": [
+            {"itemIdentifier": failed["error"]} for failed in failed_messages
         ]
-
-        # Throw an aggregate error
-        raise BadRequestError(f"Failed to process {len(failed_messages)} messages: {json.dumps(error_info)}")
-
-    # If all messages were processed successfully, do nothing
-    # The poller will automatically delete the messages from the queue
+    }
