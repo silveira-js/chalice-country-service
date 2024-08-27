@@ -33,48 +33,52 @@ def test_handle_sqs_message_success(mock_country_service, mock_logger, mock_cont
     event = create_sqs_event([{"country": "france"}, {"country": "germany"}])
     mock_country_service.fetch_and_save_country_data.return_value = True
 
-    result = handle_sqs_message(event, mock_context)
+    handle_sqs_message(event, mock_context)
 
-    assert result == {"batchItemFailures": []}
     assert mock_country_service.fetch_and_save_country_data.call_count == 2
     mock_logger.info.assert_any_call("Processing SQS message for country: france")
     mock_logger.info.assert_any_call("Successfully processed data for france")
     mock_logger.info.assert_any_call("Processing SQS message for country: germany")
     mock_logger.info.assert_any_call("Successfully processed data for germany")
-    mock_logger.info.assert_called_with("Successfully processed 2 messages")
 
 def test_handle_sqs_message_partial_failure(mock_country_service, mock_logger, mock_context):
     event = create_sqs_event([{"country": "france"}, {"country": "germany"}])
     mock_country_service.fetch_and_save_country_data.side_effect = [True, False]
 
-    result = handle_sqs_message(event, mock_context)
+    with pytest.raises(BadRequestError) as excinfo:
+        handle_sqs_message(event, mock_context)
 
-    assert result == {"batchItemFailures": [{"itemIdentifier": "Failed to process data for germany"}]}
-    mock_logger.error.assert_called_with('Failed to process 1 messages: [{"error": "Failed to process data for germany"}]')
-    mock_logger.info.assert_called_with("Successfully processed 1 messages")
+    assert "Failed to process 1 messages" in str(excinfo.value)
+    mock_country_service.queue_service.delete_message.assert_called_once_with("receipt1")
+    mock_logger.error.assert_called_with("Failed to process data for germany")
 
 def test_handle_sqs_message_json_decode_error(mock_country_service, mock_logger, mock_context):
     event = create_sqs_event(["invalid json"])
 
-    result = handle_sqs_message(event, mock_context)
+    with pytest.raises(BadRequestError) as excinfo:
+        handle_sqs_message(event, mock_context)
 
-    assert len(result["batchItemFailures"]) == 1
-    assert "Invalid JSON" in result["batchItemFailures"][0]["itemIdentifier"]
-    mock_logger.error.assert_called_with('Failed to process 1 messages: [{"error": "Invalid JSON: Expecting value: line 1 column 1 (char 0)"}]')
+    assert "Failed to process 1 messages" in str(excinfo.value)
+    assert "Invalid JSON" in str(excinfo.value)
+    mock_logger.error.assert_called_with("Invalid JSON in message: Expecting value: line 1 column 1 (char 0)")
 
 def test_handle_sqs_message_missing_key(mock_country_service, mock_logger, mock_context):
     event = create_sqs_event([{"not_country": "france"}])
 
-    result = handle_sqs_message(event, mock_context)
+    with pytest.raises(BadRequestError) as excinfo:
+        handle_sqs_message(event, mock_context)
 
-    assert result == {"batchItemFailures": [{"itemIdentifier": "Missing 'country' key in message"}]}
-    mock_logger.error.assert_called_with('Failed to process 1 messages: [{"error": "Missing \'country\' key in message"}]')
+    assert "Failed to process 1 messages" in str(excinfo.value)
+    assert "Missing 'country' key in message" in str(excinfo.value)
+    mock_logger.error.assert_called_with("Missing 'country' key in message")
 
 def test_handle_sqs_message_unexpected_error(mock_country_service, mock_logger, mock_context):
     event = create_sqs_event([{"country": "france"}])
     mock_country_service.fetch_and_save_country_data.side_effect = Exception("Unexpected error")
 
-    result = handle_sqs_message(event, mock_context)
+    with pytest.raises(BadRequestError) as excinfo:
+        handle_sqs_message(event, mock_context)
 
-    assert result == {"batchItemFailures": [{"itemIdentifier": "Unexpected error: Unexpected error"}]}
-    mock_logger.error.assert_called_with('Failed to process 1 messages: [{"error": "Unexpected error: Unexpected error"}]')
+    assert "Failed to process 1 messages" in str(excinfo.value)
+    assert "Unexpected error" in str(excinfo.value)
+    mock_logger.error.assert_called_with("Unexpected error processing message: Unexpected error")

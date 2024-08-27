@@ -75,16 +75,15 @@ def test_fetch_and_save_country_data(mock_fetch_and_save, test_client):
     mock_fetch_and_save.return_value = True
     event = test_client.events.generate_sqs_event([json.dumps({"country": "france"})])
     response = test_client.lambda_.invoke("handle_sqs_message", event)
-    assert response.payload == {"batchItemFailures": []}
+    assert response.payload is None
     mock_fetch_and_save.assert_called_once_with("france")
 
 @patch('app.country_service.fetch_and_save_country_data')
 def test_fetch_and_save_country_data_failure(mock_fetch_and_save, test_client):
     mock_fetch_and_save.return_value = False
     event = test_client.events.generate_sqs_event([json.dumps({"country": "france"})])
-    response = test_client.lambda_.invoke("handle_sqs_message", event)
-    assert response.payload == {"batchItemFailures": [{"itemIdentifier": "Failed to process data for france"}]}
-    mock_fetch_and_save.assert_called_once_with("france")
+    with pytest.raises(BadRequestError, match="Failed to process 1 messages"):
+        test_client.lambda_.invoke("handle_sqs_message", event)
 
 def test_fetch_invalid_country_name_too_short(test_client):
     response = test_client.http.get("/fetch/ab")
